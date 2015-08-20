@@ -1,16 +1,19 @@
 package KnightsSword;
 
+import java.awt.Rectangle;
+
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
 import org.dreambot.api.utilities.impl.Condition;
 import org.dreambot.api.wrappers.interactive.NPC;
+import org.dreambot.api.input.mouse.destination.impl.shape.RectangleDestination;
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.wrappers.interactive.GameObject;
 
-@ScriptManifest(category = Category.QUEST, name = "knightsSword", author = "Himouto", version = 2.00)
+@ScriptManifest(category = Category.QUEST, name = "knightsSword", author = "Himouto", version = 2.01)
 public class Quester extends AbstractScript {
 
 	private final int knightsSwordProgress = 122;
@@ -23,21 +26,23 @@ public class Quester extends AbstractScript {
 	private final Area caveEntrance = new Area(3007, 3148, 3010, 3151);
 	private final Area wholeCave = new Area(2991, 9545, 3067, 9587);
 	private final Area caveExit = new Area(3007, 9548, 3009, 9552);
-	private final Area bluriteMine = new Area(3061, 9581, 3067, 9584);
-	private final Area caveIntermediary = new Area(3045, 9580, 3049, 9582);
+	private final Area bluriteMine = new Area(3048, 9567, 3051, 9569);
 	private final Area faladorIntermediary = new Area(3001, 3352, 3008, 3354);
-	private final Area lumbySpawn = new Area(3215, 3215, 3224, 3221);
+	private final Area safeSpot = new Area(3036, 9578, 3037, 9580);
+	private final Area runBackIntermediary = new Area(3006, 9578, 3010, 9580);
+	
+	private final Tile bluriteSpot = new Tile(3049, 9567);
 
-	private final Tile bluriteSpot = new Tile(3067, 9583);
-
+	private final String Ice_Warrior = "Ice Warrior";
 	private final String Thurgo = "Thurgo";
 	private final String Squire = "Squire";
 	private final String Reldo = "Reldo";
 
+	private boolean wait = true;
+	private boolean doOnce = true;
 	private boolean dontMove = false;
-	//set back to false@@@@
-	private boolean caveIntermediaryReached = false;
 	private boolean faladorIntermediaryReached = false;
+	private boolean runBackIntermediaryReached = false;
 
 	@Override
 	public int onLoop() {
@@ -87,6 +92,7 @@ public class Quester extends AbstractScript {
 			if (faladorIntermediaryReached) {
 				if (castleGrounds.contains(getLocalPlayer())) {
 					sleepUntil(() -> talkToSquire(), 50000);
+					doOnce = true;
 				} else {
 					getWalking().walk(castleGrounds.getCenter());
 				}
@@ -100,12 +106,10 @@ public class Quester extends AbstractScript {
 
 		//search the cupboard for the pie
 		case 5:
-			
 			//go back to thurgo when you have the portrait
 			if (getInventory().contains("Portrait")) {
 				if (thurgoArea.contains(getLocalPlayer())) {
 					sleepUntil(() -> talkToThurgo(), 30000);
-					caveIntermediaryReached = false;
 				} else {
 					getWalking().walk(thurgoArea.getCenter());
 				}
@@ -155,26 +159,21 @@ public class Quester extends AbstractScript {
 
 				}
 			} else {
+				if(doOnce) {
+					GameObject staircase = getGameObjects().closest(stair -> stair.getName().equals("Staircase"));
+					if(staircase != null) {
+						staircase.interact("Climb-up");
+						sleepUntil(() -> getLocalPlayer().isMoving(), 8000);
+					}
+					doOnce = false;
+				}
 				getWalking().walk(secondFloor.getCenter());
 			}
 			break;
 
 		//mine the blurite ore, give it to Thurgo to make the sword, return it to the squire
 		case 6:
-			//reset everything if you die, doesn't support other spawns
-			if(lumbySpawn.contains(getLocalPlayer())) {
-				caveIntermediaryReached = false;
-			}
-			if(!wholeCave.contains(getLocalPlayer()) && getInventory().contains("Blurite ore")) {
-				if (thurgoArea.contains(getLocalPlayer())) {
-					sleepUntil(() -> talkToThurgo(), 50000);
-					caveIntermediaryReached = true;
-				} else {
-					getWalking().walk(thurgoArea.getCenter());
-				}
-			}
-			if (caveIntermediaryReached) {
-				if (getInventory().contains("Blurite sword")) {
+			if (getInventory().contains("Blurite sword")) {
 					if (faladorIntermediaryReached) {
 						if (castleGrounds.contains(getLocalPlayer())) {
 							sleepUntil(() -> talkToSquire(), 50000);
@@ -187,8 +186,7 @@ public class Quester extends AbstractScript {
 						}
 						getWalking().walk(faladorIntermediary.getCenter());
 					}
-				} else {
-					if (getInventory().contains("Blurite ore")) {
+				} else if (getInventory().contains("Blurite ore")) {
 						if (wholeCave.contains(getLocalPlayer())) {
 							if (caveExit.contains(getLocalPlayer())) {
 								GameObject ladder = getGameObjects().closest(
@@ -198,8 +196,15 @@ public class Quester extends AbstractScript {
 									sleep(Calculations.random(1000, 3000));
 								}
 							} else {
-								caveIntermediaryReached = true;
-								getWalking().walk(caveExit.getCenter());
+								if(runBackIntermediaryReached) {
+									getWalking().walk(caveExit.getCenter());
+								} else {
+									if(runBackIntermediary.contains(getLocalPlayer())) {
+										runBackIntermediaryReached = true;
+									} else {
+										getWalking().walk(runBackIntermediary.getCenter());
+									}
+								}
 								
 							}
 						} else {
@@ -210,7 +215,7 @@ public class Quester extends AbstractScript {
 							}
 						}
 					} else {
-						//if (wholeCave.contains(getLocalPlayer())) {
+						if(wholeCave.contains(getLocalPlayer())) {
 							if (bluriteMine.contains(getLocalPlayer())) {
 								if (dontMove) {
 									GameObject blurite = getGameObjects().closest(
@@ -219,57 +224,43 @@ public class Quester extends AbstractScript {
 									if (blurite.interact("Mine")) {
 										sleepUntil(() -> getLocalPlayer()
 												.getAnimation() == -1, 60000);
-										caveIntermediaryReached = false;
 									}
 								} else {
 									sleepUntil(
-											() -> getWalking().walk(bluriteSpot),
+											() -> getMouse().click(new RectangleDestination(getClient(), new Rectangle((int) getMap().getBounds(bluriteSpot).getCenterX()-1, (int) getMap().getBounds(bluriteSpot).getCenterY()-1, 2, 2))),
 											10000);
 									dontMove = true;
 								}
 							} else {
-									getWalking().walk(bluriteMine.getCenter());
-								}
-							//} else {
-							//if (caveEntrance.contains(getLocalPlayer())) {
-							//	GameObject trapDoor = getGameObjects()
-							//			.closest(
-							//					trapdoor -> trapdoor != null
-							//							&& trapdoor
-							//									.hasAction("Climb-down"));
-							//	if (trapDoor.interact("Climb-down")) {
-							//		caveIntermediaryReached = false;
-							//		sleep(Calculations.random(500, 600));
-							//	}
-							//} else {
-							//	getWalking().walk(caveEntrance.getCenter());
-							//}
-						//}
-					}
-				}
-			} else {
-				if(wholeCave.contains(getLocalPlayer())) {
-					if (caveIntermediary.contains(getLocalPlayer())) {
-						caveIntermediaryReached = true;
+								if(wait) {
+									if(safeSpot.contains(getLocalPlayer())) {
+										NPC iceWarrior = getNpcs().closest(Ice_Warrior);
+										if(iceWarrior.getY() > 9577) {
+											wait = false;
+										}
+									} else {
+										getWalking().walk(safeSpot.getCenter());
+										}
+									} else {
+										getWalking().walk(bluriteMine.getCenter());
+									}
+							}
 					} else {
-					getWalking().walk(caveIntermediary.getCenter());
-					}
-			} else {
-				if (caveEntrance.contains(getLocalPlayer())) {
-					GameObject trapDoor = getGameObjects()
-							.closest(
-									trapdoor -> trapdoor != null
-											&& trapdoor
+						if (caveEntrance.contains(getLocalPlayer())) {
+								GameObject trapDoor = getGameObjects()
+										.closest(
+												trapdoor -> trapdoor != null
+												&& trapdoor
 													.hasAction("Climb-down"));
-					if (trapDoor.interact("Climb-down")) {
-						caveIntermediaryReached = false;
-						sleep(Calculations.random(500, 600));
-					}
-				} else {
-					getWalking().walk(caveEntrance.getCenter());
+								if (trapDoor.interact("Climb-down")) {
+									wait = true;
+									sleep(Calculations.random(500, 600));
+								}
+						} else {
+							getWalking().walk(caveEntrance.getCenter());
+						}
 					}
 				}
-			}
 			break;
 
 		case 7:
