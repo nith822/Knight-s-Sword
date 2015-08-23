@@ -13,7 +13,7 @@ import org.dreambot.api.methods.map.Area;
 import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.wrappers.interactive.GameObject;
 
-@ScriptManifest(category = Category.QUEST, name = "knightsSword", author = "Himouto", version = 2.01)
+@ScriptManifest(category = Category.QUEST, name = "knightsSword", author = "Himouto", version = 2.03)
 public class Quester extends AbstractScript {
 
 	private final int knightsSwordProgress = 122;
@@ -162,12 +162,14 @@ public class Quester extends AbstractScript {
 				if(doOnce) {
 					GameObject staircase = getGameObjects().closest(stair -> stair.getName().equals("Staircase"));
 					if(staircase != null) {
-						staircase.interact("Climb-up");
-						sleepUntil(() -> getLocalPlayer().isMoving(), 8000);
+						if(staircase.interact("Climb-up")) {
+							sleepUntil(() -> !getLocalPlayer().isMoving(), 8000);
+							doOnce = false;
+						}
 					}
-					doOnce = false;
+				} else {
+					getWalking().walk(secondFloor.getCenter());
 				}
-				getWalking().walk(secondFloor.getCenter());
 			}
 			break;
 
